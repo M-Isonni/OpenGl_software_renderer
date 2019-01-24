@@ -1,7 +1,7 @@
 CC=clang
 CPPCHECK=C:\Program Files\Cppcheck\cppcheck.exe
 CFLAGS=-Wall -Iinclude -Iinclude/glad -Wno-pragma-pack
-LDFLAGS= -L. -lSDL2
+LDFLAGS= -L. -lSDL2 -llibfbxc -llibui
 BINARY_DRAW=draw
 BINARY_TESTS=opengl_tests
 
@@ -12,7 +12,7 @@ endif
 
 all: draw
 
-draw: draw.o glad.o parser.o rasterizer.o aiv_math.o
+draw: draw.o glad.o parser.o rasterizer.o aiv_math.o generator.o
 	$(CC) -o $(BINARY_DRAW) $(LDFLAGS) $^
 
 draw.o: draw.c
@@ -21,6 +21,10 @@ draw.o: draw.c
 
 glad.o: glad.c
 	$(CC) -c -o $@ $(CFLAGS) $^
+	$(CPPCHECK) $^
+
+generator.o: generator.c generator.h
+	$(CC) -c -o $@ $(CFLAGS) $<
 	$(CPPCHECK) $^
 
 parser.o: parser.c parser.h
