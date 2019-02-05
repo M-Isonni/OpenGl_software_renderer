@@ -49,7 +49,7 @@ GLuint compile_shader(GLenum shader_type, const char *filename){
     return shader;
 }
 
-void GenerateTexture(char* texture_name){
+GLuint GenerateTexture(char* texture_name){
 
     int w,h,comp;
     unsigned char *pixels = stbi_load(texture_name,&w,&h,&comp,4);
@@ -68,6 +68,7 @@ void GenerateTexture(char* texture_name){
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 
     free(pixels);
+    return tex;
 }
 
 void AddTexture(char* texture_name,mesh_t *activemesh){
@@ -92,25 +93,45 @@ void AddTexture(char* texture_name,mesh_t *activemesh){
     free(pixels);
 }
 
-GLuint attach_vertex_fragment_to_program(){
+GLuint attach_vertex_fragment_to_program(char *vertex,char *geom, char *frag){
 
     GLuint program = glCreateProgram();
     glEnable(GL_DEPTH_TEST);    
     glEnable(GL_CULL_FACE|GL_FRONT);
+    if(!geom){
+        GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER,vertex);
+        GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER,frag);
 
-    GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER,"vertex.glsl");
-    GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER,"frag.glsl");
+        glAttachShader(program,vertex_shader);
+        glAttachShader(program,fragment_shader);
 
-    glAttachShader(program,vertex_shader);
-    glAttachShader(program,fragment_shader);
+        glLinkProgram(program);
 
-    glLinkProgram(program);
+        glDetachShader(program,vertex_shader);
+        glDetachShader(program,fragment_shader);
 
-    glDetachShader(program,vertex_shader);
-    glDetachShader(program,fragment_shader);
+        glDeleteShader(vertex_shader);
+        glDeleteShader(fragment_shader);
+    }
+    else{
+        GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER,vertex);
+        GLuint geom_shader = compile_shader(GL_GEOMETRY_SHADER,geom);
+        GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER,frag);
 
-    glDeleteShader(vertex_shader);
-    glDeleteShader(fragment_shader);
+        glAttachShader(program,vertex_shader);
+        glAttachShader(program,geom_shader);
+        glAttachShader(program,fragment_shader);
+
+        glLinkProgram(program);
+
+        glDetachShader(program,vertex_shader);
+        glDetachShader(program,geom_shader);
+        glDetachShader(program,fragment_shader);
+
+        glDeleteShader(vertex_shader);
+        glDeleteShader(geom_shader);
+        glDeleteShader(fragment_shader);
+    }    
 
     glUseProgram(program);
     return program;
@@ -148,11 +169,11 @@ void GenerateMesh(char *fbx_name,char *texture_name,GLuint *program,float scale)
     fbxc_scene_t *obj= fbxc_parse_file(fbx_name);
     if(!obj){
         SDL_Log("fbx not parsed");
-    }  
+    }
     
     GLuint vao = CompileMesh(obj,texture_name);
     SDL_Log("returned vao: %d",vao);
-    GenerateTexture(texture_name);
+    GLuint tex=GenerateTexture(texture_name);
     mesh_t *new_mesh=malloc(sizeof(mesh_t));
     memset(new_mesh,0,sizeof(mesh_t));
     new_mesh->vertices_len = obj->vertices_len;
@@ -161,8 +182,9 @@ void GenerateMesh(char *fbx_name,char *texture_name,GLuint *program,float scale)
     new_mesh->y_uniform=glGetUniformLocation(*program,"y");
     new_mesh->scale_uniform=glGetUniformLocation(*program,"scale");
     new_mesh->tex_uniform=glGetUniformLocation(*program,"tex_base_color");
-    new_mesh->scale=scale;  
+    new_mesh->scale=scale;
     new_mesh->texture_num=0; 
+    new_mesh->tex = tex;
     glUniform1f(new_mesh->tex_uniform,0); 
     fbxc_scene_free(obj);  
     meshes_num++;
